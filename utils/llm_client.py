@@ -10,23 +10,23 @@ logger = get_logger("llm_client")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-# Models in priority order — falls back to next on 404/failure
 # Updated March 2026 - verified working free models
 FREE_MODELS = [
-    "meta-llama/llama-3.2-3b-instruct:free",
-    "google/gemini-2.0-flash-exp:free",
-    "qwen/qwen-2.5-7b-instruct:free",
-    "microsoft/phi-3-mini-128k-instruct:free",
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "deepseek/deepseek-r1:free",
+    "google/gemma-3-27b-it:free",
+    "mistralai/mistral-small-3.1-24b-instruct:free",
+    "qwen/qwen-2.5-72b-instruct:free",
+    "openrouter/auto",  # final fallback
 ]
 
-# Per-model state
 _model_state = {
     model: {
         "requests_this_minute": 0,
         "minute_start": time.time(),
         "total_requests": 0,
         "last_429_at": 0,
-        "blacklisted": False,   # permanent skip after 404
+        "blacklisted": False,
     }
     for model in FREE_MODELS
 }
@@ -42,12 +42,6 @@ def _reset_minute(state):
 
 
 def call_llm(system_prompt: str, user_prompt: str, max_retries: int = 3, temperature: float = 0.3) -> str:
-    """
-    Call OpenRouter with multi-model fallback.
-    Tries each model once before moving to next.
-    Fails fast on 404 (blacklists model permanently).
-    Waits on 429 then retries same model once, then moves on.
-    """
     if not OPENROUTER_API_KEY:
         raise EnvironmentError("OPENROUTER_API_KEY not set in .env")
 
@@ -66,13 +60,11 @@ def call_llm(system_prompt: str, user_prompt: str, max_retries: int = 3, tempera
 
         _reset_minute(state)
 
-        # If rate limited recently, wait once then try
         if time.time() - state["last_429_at"] < COOLDOWN_AFTER_429:
             wait = COOLDOWN_AFTER_429 - int(time.time() - state["last_429_at"])
             logger.warning(f"[{model.split('/')[-1]}] Rate limited, waiting {wait}s...")
             time.sleep(wait)
 
-        # Try this model up to max_retries times
         for attempt in range(1, max_retries + 1):
             _reset_minute(state)
 
@@ -101,12 +93,12 @@ def call_llm(system_prompt: str, user_prompt: str, max_retries: int = 3, tempera
                     logger.warning(f"[{model.split('/')[-1]}] 429 rate limited. Waiting {COOLDOWN_AFTER_429}s...")
                     state["last_429_at"] = time.time()
                     time.sleep(COOLDOWN_AFTER_429)
-                    continue  # retry same model after wait
+                    continue
 
                 if response.status_code == 404:
                     logger.error(f"[{model.split('/')[-1]}] 404 not found. Blacklisting, trying next model.")
                     state["blacklisted"] = True
-                    break  # move to next model immediately
+                    break
 
                 if response.status_code == 401:
                     raise EnvironmentError("Invalid OPENROUTER_API_KEY — check your secret.")
@@ -119,18 +111,15 @@ def call_llm(system_prompt: str, user_prompt: str, max_retries: int = 3, tempera
 
             except EnvironmentError:
                 raise
-
             except requests.exceptions.Timeout:
                 logger.error(f"[{model.split('/')[-1]}] Timeout on attempt {attempt}")
                 time.sleep(2)
-
             except requests.exceptions.RequestException as e:
                 logger.error(f"[{model.split('/')[-1]}] Error: {e}")
                 time.sleep(2)
-
             except (KeyError, IndexError) as e:
                 logger.error(f"[{model.split('/')[-1]}] Bad response format: {e}")
-                break  # malformed response, try next model
+                break
 
     raise RuntimeError("All models failed. Check your OPENROUTER_API_KEY and model availability.")
 
