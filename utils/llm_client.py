@@ -10,14 +10,12 @@ logger = get_logger("llm_client")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-# Updated March 2026 - verified working free models
 FREE_MODELS = [
     "meta-llama/llama-3.3-70b-instruct:free",
     "deepseek/deepseek-r1:free",
     "google/gemma-3-27b-it:free",
     "mistralai/mistral-small-3.1-24b-instruct:free",
     "qwen/qwen-2.5-72b-instruct:free",
-    "openrouter/auto",  # final fallback
 ]
 
 _model_state = {
@@ -32,7 +30,6 @@ _model_state = {
 }
 
 RPM_LIMIT = 18
-COOLDOWN_AFTER_429 = 60
 
 
 def _reset_minute(state):
@@ -60,11 +57,6 @@ def call_llm(system_prompt: str, user_prompt: str, max_retries: int = 3, tempera
 
         _reset_minute(state)
 
-        if time.time() - state["last_429_at"] < COOLDOWN_AFTER_429:
-            wait = COOLDOWN_AFTER_429 - int(time.time() - state["last_429_at"])
-            logger.warning(f"[{model.split('/')[-1]}] Rate limited, waiting {wait}s...")
-            time.sleep(wait)
-
         for attempt in range(1, max_retries + 1):
             _reset_minute(state)
 
@@ -90,10 +82,9 @@ def call_llm(system_prompt: str, user_prompt: str, max_retries: int = 3, tempera
                 state["total_requests"] += 1
 
                 if response.status_code == 429:
-                    logger.warning(f"[{model.split('/')[-1]}] 429 rate limited. Waiting {COOLDOWN_AFTER_429}s...")
+                    logger.warning(f"[{model.split('/')[-1]}] 429 rate limited. Skipping to next model.")
                     state["last_429_at"] = time.time()
-                    time.sleep(COOLDOWN_AFTER_429)
-                    continue
+                    break
 
                 if response.status_code == 404:
                     logger.error(f"[{model.split('/')[-1]}] 404 not found. Blacklisting, trying next model.")
@@ -102,6 +93,11 @@ def call_llm(system_prompt: str, user_prompt: str, max_retries: int = 3, tempera
 
                 if response.status_code == 401:
                     raise EnvironmentError("Invalid OPENROUTER_API_KEY — check your secret.")
+
+                if response.status_code == 402:
+                    logger.error(f"[{model.split('/')[-1]}] 402 Payment Required. Blacklisting, trying next model.")
+                    state["blacklisted"] = True
+                    break
 
                 response.raise_for_status()
                 data = response.json()
