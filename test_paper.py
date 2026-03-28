@@ -7,6 +7,7 @@ Output saved to output_brief.json
 import json
 import sys
 from utils.pdf_parser import extract_text_from_url
+from utils.llm_client import log_usage_summary
 from agents.boss_agent import run
 from utils.logger import get_logger
 
@@ -65,6 +66,7 @@ def main():
     with open("output_brief.json", "w") as f:
         json.dump(brief, f, indent=2)
     logger.info("Full brief saved to output_brief.json")
+    log_usage_summary()
     logger.info("TEST PASSED ✓")
 
 if __name__ == "__main__":
