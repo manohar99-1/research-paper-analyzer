@@ -1,0 +1,34 @@
+name: Test Research Paper Analyzer Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:  # allows manual trigger from GitHub UI
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run pipeline on sample paper
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPENROUTER_MODEL: mistralai/mistral-7b-instruct:free
+        run: python test_paper.py
+
+      - name: Upload research brief as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: research-brief
+          path: output_brief.json
