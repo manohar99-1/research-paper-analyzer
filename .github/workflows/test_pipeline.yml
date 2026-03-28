@@ -3,7 +3,7 @@ name: Test Research Paper Analyzer Pipeline
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:  # allows manual trigger from GitHub UI
+  workflow_dispatch:
 
 jobs:
   analyze:
@@ -20,6 +20,17 @@ jobs:
 
       - name: Install dependencies
         run: pip install -r requirements.txt
+
+      - name: Verify API key is set
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          if [ -z "$OPENROUTER_API_KEY" ]; then
+            echo "ERROR: OPENROUTER_API_KEY secret is empty or not set!"
+            exit 1
+          else
+            echo "API key is set (length: ${#OPENROUTER_API_KEY})"
+          fi
 
       - name: Run pipeline on sample paper
         env:
