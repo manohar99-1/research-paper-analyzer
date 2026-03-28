@@ -35,12 +35,11 @@ def test_models():
     
     api_key = os.getenv("OPENROUTER_API_KEY")
     
-    models = [
-        "meta-llama/llama-3.2-3b-instruct:free",
-        "google/gemini-2.0-flash-exp:free",
-        "qwen/qwen-2.5-7b-instruct:free",
-        "microsoft/phi-3-mini-128k-instruct:free",
-    ]
+/llama-3.3-70b-instruct:free",
+        "deepseek/deepseek-r1:free",
+        "google/gemma-3-27b-it:free",
+        "mistralai/mistral-small-3.1-24b-instruct:free",
+        "qwen/qwen-2.5-72b-instruct:free",
     
     print("\n🧪 Testing models...\n")
     
