@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Research Paper Analyzer · AI Multi-Agent System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0c0e0f;
+    --surface: #141618;
+    --surface2: #1c1f21;
+    --border: #2a2d30;
+    --accent: #c8f04e;
+    --accent2: #4ef0c8;
+    --accent3: #f04e7a;
+    --text: #e8eaec;
+    --muted: #6b7280;
+    --muted2: #9ca3af;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 300;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Background Grid ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(200,240,78,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(200,240,78,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 24px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── Header ── */
+  header {
+    padding: 48px 0 32px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .header-tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(32px, 5vw, 52px);
+    font-weight: 400;
+    line-height: 1.1;
+    color: var(--text);
+  }
+
+  h1 em {
+    font-style: italic;
+    color: var(--accent);
+  }
+
+  .header-desc {
+    margin-top: 12px;
+    color: var(--muted2);
+    font-size: 15px;
+    line-height: 1.6;
+    max-width: 560px;
+  }
+
+  .agent-badges {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 20px;
+  }
+
+  .badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    padding: 4px 10px;
+    border-radius: 3px;
+    text-transform: uppercase;
+  }
+  .badge-boss { background: rgba(200,240,78,0.12); color: var(--accent); border: 1px solid rgba(200,240,78,0.3); }
+  .badge-sub  { background: rgba(78,240,200,0.08); color: var(--accent2); border: 1px solid rgba(78,240,200,0.2); }
+  .badge-rev  { background: rgba(240,78,122,0.08); color: var(--accent3); border: 1px solid rgba(240,78,122,0.2); }
+
+  /* ── Input Section ── */
+  .input-section {
+    padding: 40px 0;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 24px;
+    width: fit-content;
+  }
+
+  .tab {
+    padding: 10px 20px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    background: var(--surface);
+    color: var(--muted);
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-transform: uppercase;
+  }
+  .tab:not(:last-child) { border-right: 1px solid var(--border); }
+  .tab.active { background: var(--accent); color: #0c0e0f; font-weight: 600; }
+  .tab:hover:not(.active) { color: var(--text); background: var(--surface2); }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 48px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--surface);
+  }
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(200,240,78,0.04);
+  }
+  .upload-icon { font-size: 36px; margin-bottom: 12px; }
+  .upload-label { color: var(--muted2); font-size: 14px; }
+  .upload-label strong { color: var(--accent); }
+  #fileInput { display: none; }
+  .file-selected { color: var(--accent2); font-size: 13px; margin-top: 8px; font-family: 'DM Mono', monospace; }
+
+  input[type="text"], textarea {
+    width: 100%;
+    padding: 14px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input[type="text"]:focus, textarea:focus { border-color: var(--accent); }
+  textarea { min-height: 160px; resize: vertical; line-height: 1.6; }
+  input::placeholder, textarea::placeholder { color: var(--muted); }
+
+  .api-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    align-items: center;
+  }
+  .api-row label {
+    font-size: 12px;
+    color: var(--muted2);
+    font-family: 'DM Mono', monospace;
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .analyze-btn {
+    margin-top: 20px;
+    width: 100%;
+    padding: 16px 24px;
+    background: var(--accent);
+    color: #0c0e0f;
+    border: none;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.02em;
+  }
+  .analyze-btn:hover:not(:disabled) { background: #d4f562; transform: translateY(-1px); }
+  .analyze-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  /* ── Pipeline Tracker ── */
+  .pipeline {
+    display: none;
+    padding: 32px 0;
+    border-top: 1px solid var(--border);
+  }
+  .pipeline.visible { display: block; }
+
+  .pipeline-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+
+  .pipeline-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .step {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    transition: all 0.3s;
+  }
+  .step.active {
+    border-color: var(--accent);
+    background: rgba(200,240,78,0.06);
+  }
+  .step.done {
+    border-color: rgba(78,240,200,0.3);
+    background: rgba(78,240,200,0.04);
+  }
+  .step.error {
+    border-color: rgba(240,78,122,0.3);
+    background: rgba(240,78,122,0.04);
+  }
+
+  .step-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    flex-shrink: 0;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    transition: all 0.3s;
+  }
+  .step.active .step-icon { border-color: var(--accent); color: var(--accent); animation: pulse 1.5s infinite; }
+  .step.done .step-icon { background: var(--accent2); border-color: var(--accent2); color: #0c0e0f; }
+  .step.error .step-icon { background: var(--accent3); border-color: var(--accent3); color: #fff; }
+
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(200,240,78,0.4); }
+    50% { box-shadow: 0 0 0 6px rgba(200,240,78,0); }
+  }
+
+  .step-info { flex: 1; }
+  .step-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+  }
+  .step-desc {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    margin-top: 2px;
+  }
+
+  .step-score {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--accent2);
+    font-weight: 500;
+  }
+
+  /* ── Results ── */
+  .results {
+    display: none;
+    padding: 40px 0 80px;
+    border-top: 1px solid var(--border);
+  }
+  .results.visible { display: block; }
+
+  .results-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 32px;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .paper-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(20px, 3vw, 28px);
+    font-weight: 400;
+    line-height: 1.3;
+    flex: 1;
+  }
+
+  .quality-chip {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    background: rgba(200,240,78,0.12);
+    border: 1px solid rgba(200,240,78,0.3);
+    color: var(--accent);
+    white-space: nowrap;
+    font-weight: 500;
+  }
+
+  .meta-row {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 32px;
+  }
+  .meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .meta-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+  }
+  .meta-value {
+    font-size: 14px;
+    color: var(--text);
+    font-weight: 400;
+  }
+
+  .section {
+    margin-bottom: 32px;
+  }
+
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--accent);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .summary-text {
+    font-size: 15px;
+    line-height: 1.8;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 20px 24px;
+    border-radius: 0 8px 8px 0;
+  }
+
+  .findings-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .finding-item {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 12px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .finding-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    padding-top: 2px;
+    flex-shrink: 0;
+  }
+
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 600px) { .two-col { grid-template-columns: 1fr; } }
+
+  .info-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+  }
+  .info-card-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .info-card-value {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text);
+  }
+
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .tag {
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted2);
+  }
+
+  .citations-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .citations-table th {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .citations-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--muted2);
+    vertical-align: top;
+    line-height: 1.5;
+  }
+  .citations-table tr:last-child td { border-bottom: none; }
+  .citations-table tr:hover td { background: var(--surface2); }
+  .cite-title { color: var(--text); font-size: 13px; }
+  .cite-num { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--accent); }
+
+  .score-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  @media (max-width: 600px) { .score-grid { grid-template-columns: repeat(2, 1fr); } }
+
+  .score-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    text-align: center;
+  }
+  .score-num {
+    font-family: 'DM Serif Display', serif;
+    font-size: 32px;
+    line-height: 1;
+    color: var(--accent);
+  }
+  .score-num.low { color: var(--accent3); }
+  .score-num.mid { color: #f0c84e; }
+  .score-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  .error-box {
+    background: rgba(240,78,122,0.08);
+    border: 1px solid rgba(240,78,122,0.3);
+    border-radius: 8px;
+    padding: 16px 20px;
+    color: var(--accent3);
+    font-size: 14px;
+    margin-top: 16px;
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid rgba(200,240,78,0.3);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .insights-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .insight-item {
+    padding: 12px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 2px solid var(--accent2);
+    border-radius: 0 8px 8px 0;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text);
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Header -->
+  <header>
+    <div class="header-tag">Multi-Agent AI System</div>
+    <h1>Research Paper <em>Analyzer</em></h1>
+    <p class="header-desc">
+      Upload any academic paper and five specialized AI agents will extract methodology,
+      summarize findings, organize citations, and generate actionable insights — with automated quality control.
+    </p>
+    <div class="agent-badges">
+      <span class="badge badge-boss">Boss Agent</span>
+      <span class="badge badge-sub">Paper Analyzer</span>
+      <span class="badge badge-sub">Summary Generator</span>
+      <span class="badge badge-sub">Citation Extractor</span>
+      <span class="badge badge-sub">Key Insights</span>
+      <span class="badge badge-rev">Review Agent</span>
+    </div>
+  </header>
+
+  <!-- Input -->
+  <section class="input-section">
+
+    <!-- API URL config -->
+    <div class="api-row">
+      <label>API URL</label>
+      <input type="text" id="apiUrl" value="http://localhost:5000" placeholder="http://localhost:5000" style="max-width:260px;">
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('pdf')">PDF Upload</button>
+      <button class="tab" onclick="switchTab('url')">PDF URL</button>
+      <button class="tab" onclick="switchTab('text')">Raw Text</button>
+    </div>
+
+    <!-- PDF Tab -->
+    <div id="tab-pdf" class="tab-panel active">
+      <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+        <div class="upload-icon">📄</div>
+        <div class="upload-label">
+          <strong>Click to upload</strong> or drag & drop a PDF<br>
+          <span style="font-size:12px;">Academic papers, arXiv PDFs, research articles</span>
+        </div>
+        <div class="file-selected" id="fileSelected"></div>
+        <input type="file" id="fileInput" accept=".pdf" onchange="onFileSelect(this)">
+      </div>
+    </div>
+
+    <!-- URL Tab -->
+    <div id="tab-url" class="tab-panel">
+      <input type="text" id="urlInput" placeholder="https://arxiv.org/pdf/2310.06825.pdf">
+    </div>
+
+    <!-- Text Tab -->
+    <div id="tab-text" class="tab-panel">
+      <textarea id="textInput" placeholder="Paste the full text of a research paper here..."></textarea>
+    </div>
+
+    <button class="analyze-btn" id="analyzeBtn" onclick="analyze()">
+      Analyze Paper →
+    </button>
+  </section>
+
+  <!-- Pipeline Tracker -->
+  <section class="pipeline" id="pipeline">
+    <div class="pipeline-title">Agent Pipeline · Live Status</div>
+    <div class="pipeline-steps">
+      <div class="step" id="step-pdf">
+        <div class="step-icon">📑</div>
+        <div class="step-info">
+          <div class="step-name">PDF Parser</div>
+          <div class="step-desc">Extracting and cleaning text</div>
+        </div>
+        <div class="step-score" id="score-pdf"></div>
+      </div>
+      <div class="step" id="step-boss">
+        <div class="step-icon">🧠</div>
+        <div class="step-info">
+          <div class="step-name">Boss Agent</div>
+          <div class="step-desc">Orchestrating pipeline</div>
+        </div>
+      </div>
+      <div class="step" id="step-analyzer">
+        <div class="step-icon">🔬</div>
+        <div class="step-info">
+          <div class="step-name">Paper Analyzer Agent</div>
+          <div class="step-desc">Extracting methodology & findings</div>
+        </div>
+        <div class="step-score" id="score-analyzer"></div>
+      </div>
+      <div class="step" id="step-summary">
+        <div class="step-icon">✍️</div>
+        <div class="step-info">
+          <div class="step-name">Summary Generator Agent</div>
+          <div class="step-desc">Writing executive summary</div>
+        </div>
+        <div class="step-score" id="score-summary"></div>
+      </div>
+      <div class="step" id="step-citations">
+        <div class="step-icon">📚</div>
+        <div class="step-info">
+          <div class="step-name">Citation Extractor Agent</div>
+          <div class="step-desc">Organizing references</div>
+        </div>
+        <div class="step-score" id="score-citations"></div>
+      </div>
+      <div class="step" id="step-insights">
+        <div class="step-icon">💡</div>
+        <div class="step-info">
+          <div class="step-name">Key Insights Agent</div>
+          <div class="step-desc">Generating actionable takeaways</div>
+        </div>
+        <div class="step-score" id="score-insights"></div>
+      </div>
+      <div class="step" id="step-combine">
+        <div class="step-icon">📋</div>
+        <div class="step-info">
+          <div class="step-name">Boss Agent · Final Combine</div>
+          <div class="step-desc">Assembling research brief</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Results -->
+  <section class="results" id="results"></section>
+
+</div>
+
+<script>
+  let activeTab = 'pdf';
+  let selectedFile = null;
+
+  function switchTab(tab) {
+    activeTab = tab;
+    document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['pdf','url','text'][i] === tab));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-' + tab).classList.add('active');
+  }
+
+  function onFileSelect(input) {
+    if (input.files[0]) {
+      selectedFile = input.files[0];
+      document.getElementById('fileSelected').textContent = '✓ ' + selectedFile.name;
+    }
+  }
+
+  // Drag & drop
+  const zone = document.getElementById('uploadZone');
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f && f.name.endsWith('.pdf')) {
+      selectedFile = f;
+      document.getElementById('fileSelected').textContent = '✓ ' + f.name;
+    }
+  });
+
+  function setStep(id, state, score) {
+    const el = document.getElementById('step-' + id);
+    if (!el) return;
+    el.className = 'step ' + state;
+    const icons = { pdf:'📑', boss:'🧠', analyzer:'🔬', summary:'✍️', citations:'📚', insights:'💡', combine:'📋' };
+    el.querySelector('.step-icon').textContent = state === 'done' ? '✓' : state === 'error' ? '✗' : icons[id] || '·';
+    const scoreEl = document.getElementById('score-' + id);
+    if (scoreEl && score) scoreEl.textContent = score + '/10';
+  }
+
+  async function analyze() {
+    const apiUrl = document.getElementById('apiUrl').value.trim().replace(/\/$/, '');
+    const btn = document.getElementById('analyzeBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Analyzing…';
+
+    document.getElementById('pipeline').classList.add('visible');
+    document.getElementById('results').classList.remove('visible');
+    document.getElementById('results').innerHTML = '';
+
+    ['pdf','boss','analyzer','summary','citations','insights','combine'].forEach(s => setStep(s, ''));
+    ['analyzer','summary','citations','insights'].forEach(s => { const el = document.getElementById('score-'+s); if(el) el.textContent=''; });
+
+    try {
+      let endpoint, body, headers = {};
+
+      setStep('pdf', 'active');
+      await delay(400);
+
+      if (activeTab === 'pdf') {
+        if (!selectedFile) throw new Error('Please select a PDF file first.');
+        endpoint = apiUrl + '/analyze/pdf';
+        body = new FormData();
+        body.append('file', selectedFile);
+        setStep('pdf', 'done');
+      } else if (activeTab === 'url') {
+        const url = document.getElementById('urlInput').value.trim();
+        if (!url) throw new Error('Please enter a PDF URL.');
+        endpoint = apiUrl + '/analyze/url';
+        body = JSON.stringify({ url });
+        headers['Content-Type'] = 'application/json';
+        setStep('pdf', 'done');
+      } else {
+        const text = document.getElementById('textInput').value.trim();
+        if (!text) throw new Error('Please paste some paper text.');
+        endpoint = apiUrl + '/analyze/text';
+        body = JSON.stringify({ text });
+        headers['Content-Type'] = 'application/json';
+        setStep('pdf', 'done');
+      }
+
+      setStep('boss', 'active');
+      await delay(300);
+      setStep('analyzer', 'active');
+      await delay(300);
+
+      const res = await fetch(endpoint, { method: 'POST', body, headers });
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        throw new Error(data.error || 'Server error: ' + res.status);
+      }
+
+      const brief = data.brief;
+      const scores = brief.quality_report?.scores || {};
+
+      setStep('boss', 'done');
+      setStep('analyzer', 'done', scores.analysis);
+      setStep('summary', 'done', scores.summary);
+      setStep('citations', 'done', scores.citations);
+      setStep('insights', 'done', scores.insights);
+      setStep('combine', 'done');
+
+      renderResults(brief);
+
+    } catch (err) {
+      document.getElementById('results').innerHTML = `<div class="error-box">⚠ ${err.message}</div>`;
+      document.getElementById('results').classList.add('visible');
+      ['pdf','boss','analyzer','summary','citations','insights','combine'].forEach(s => {
+        const el = document.getElementById('step-' + s);
+        if (el && el.classList.contains('active')) setStep(s, 'error');
+      });
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = 'Analyze Paper →';
+  }
+
+  function renderResults(b) {
+    const meta = b.metadata || {};
+    const analysis = b.research_analysis || {};
+    const scores = b.quality_report?.scores || {};
+    const avgScore = b.quality_report?.average_score || 0;
+    const citations = b.citations || {};
+    const insights = b.key_insights || {};
+
+    function scoreClass(s) { return s < 6 ? 'low' : s < 8 ? 'mid' : ''; }
+
+    const citationRows = (citations.references || []).slice(0, 30).map(c => `
+      <tr>
+        <td><span class="cite-num">[${c.index}]</span></td>
+        <td>
+          <div class="cite-title">${esc(c.title || 'Unknown title')}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px;">${esc(c.authors || '')} ${c.year ? '· ' + c.year : ''}</div>
+        </td>
+        <td style="font-size:12px;">${esc(c.venue || '')}</td>
+      </tr>`).join('');
+
+    const findingsHTML = (analysis.key_findings || []).map((f, i) => `
+      <div class="finding-item">
+        <span class="finding-num">0${i+1}</span>
+        <span>${esc(f)}</span>
+      </div>`).join('');
+
+    const takeawaysHTML = (insights.takeaways || []).map(t => `
+      <div class="insight-item">${esc(t)}</div>`).join('');
+
+    const appsHTML = (insights.applications || []).map(a => `<span class="tag">${esc(a)}</span>`).join('');
+    const relatedHTML = (citations.key_related_works || []).map(w => `<div class="insight-item" style="border-left-color:var(--accent);">${esc(w)}</div>`).join('');
+
+    const html = `
+      <div class="results-header">
+        <div class="paper-title">${esc(meta.title || 'Research Paper Analysis')}</div>
+        <div class="quality-chip">Avg Score: ${avgScore}/10</div>
+      </div>
+
+      <div class="meta-row">
+        ${meta.authors?.length ? `<div class="meta-item"><div class="meta-label">Authors</div><div class="meta-value">${esc(meta.authors.join(', '))}</div></div>` : ''}
+        ${meta.year !== 'Unknown' ? `<div class="meta-item"><div class="meta-label">Year</div><div class="meta-value">${esc(meta.year)}</div></div>` : ''}
+        ${meta.venue !== 'Unknown' ? `<div class="meta-item"><div class="meta-label">Venue</div><div class="meta-value">${esc(meta.venue)}</div></div>` : ''}
+        <div class="meta-item"><div class="meta-label">Citations</div><div class="meta-value">${citations.total || 0} references</div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-label">Executive Summary</div>
+        <div class="summary-text">${esc(b.executive_summary || 'Summary not available.')}</div>
+      </div>
+
+      <div class="section">
+        <div class="section-label">Research Analysis</div>
+        <div class="two-col">
+          <div class="info-card">
+            <div class="info-card-label">Problem Statement</div>
+            <div class="info-card-value">${esc(analysis.problem_statement || 'N/A')}</div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-label">Hypothesis</div>
+            <div class="info-card-value">${esc(analysis.hypothesis || 'N/A')}</div>
+          </div>
+          <div class="info-card" style="grid-column: 1 / -1;">
+            <div class="info-card-label">Methodology</div>
+            <div class="info-card-value">${esc(analysis.methodology || 'N/A')}</div>
+          </div>
+          <div class="info-card" style="grid-column: 1 / -1;">
+            <div class="info-card-label">Experiments</div>
+            <div class="info-card-value">${esc(analysis.experiments || 'N/A')}</div>
+          </div>
+        </div>
+      </div>
+
+      ${findingsHTML ? `
+      <div class="section">
+        <div class="section-label">Key Findings</div>
+        <div class="findings-list">${findingsHTML}</div>
+      </div>` : ''}
+
+      ${takeawaysHTML ? `
+      <div class="section">
+        <div class="section-label">Key Insights & Takeaways</div>
+        <div class="insights-list">${takeawaysHTML}</div>
+        ${insights.field_implications ? `<div class="info-card" style="margin-top:12px;"><div class="info-card-label">Field Implications</div><div class="info-card-value">${esc(insights.field_implications)}</div></div>` : ''}
+        ${appsHTML ? `<div style="margin-top:12px;"><div class="section-label" style="margin-bottom:8px;">Potential Applications</div><div class="tags">${appsHTML}</div></div>` : ''}
+      </div>` : ''}
+
+      ${citationRows ? `
+      <div class="section">
+        <div class="section-label">Citations & References (${citations.total || 0})</div>
+        ${relatedHTML ? `<div class="insights-list" style="margin-bottom:16px;">${relatedHTML}</div>` : ''}
+        <div style="overflow-x:auto; background:var(--surface); border:1px solid var(--border); border-radius:8px;">
+          <table class="citations-table">
+            <thead><tr><th>#</th><th>Title & Authors</th><th>Venue</th></tr></thead>
+            <tbody>${citationRows}</tbody>
+          </table>
+        </div>
+      </div>` : ''}
+
+      <div class="section">
+        <div class="section-label">Quality Report</div>
+        <div class="score-grid">
+          ${Object.entries(scores).map(([k,v]) => `
+            <div class="score-card">
+              <div class="score-num ${scoreClass(v)}">${v}</div>
+              <div class="score-label">${k}</div>
+            </div>`).join('')}
+        </div>
+        ${b.quality_report?.errors?.length ? `<div class="error-box" style="margin-top:12px;">Warnings: ${b.quality_report.errors.join(' · ')}</div>` : ''}
+      </div>
+    `;
+
+    const el = document.getElementById('results');
+    el.innerHTML = html;
+    el.classList.add('visible');
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function esc(s) {
+    if (!s) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+</script>
+</body>
+</html>
